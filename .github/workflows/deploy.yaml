@@ -1,0 +1,49 @@
+name: Deploy Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/deploy.yaml
+      - package-lock.json
+      - package.json
+      - src/**
+      - tsconfig.json
+      - wrangler.jsonc
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-worker
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: vars.AUTOMERGE_APP_ID != '' && vars.CLOUDFLARE_ACCOUNT_ID != ''
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Deploy Worker
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_TEMPLATES_API_TOKEN }}
+          command: deploy
+          secrets: |
+            GITHUB_APP_PRIVATE_KEY
+            GITHUB_WEBHOOK_SECRET
+          vars: |
+            GITHUB_APP_ID
+          wranglerVersion: 4.118.0
+        env:
+          GITHUB_APP_ID: ${{ vars.AUTOMERGE_APP_ID }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.AUTOMERGE_APP_PRIVATE_KEY }}
+          GITHUB_WEBHOOK_SECRET: ${{ secrets.AUTOMERGE_WEBHOOK_SECRET }}
