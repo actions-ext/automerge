@@ -3,3 +3,4 @@ New commit after automerge opt-in.
 Diagnostic retry.
 Retry with regenerated App key.
 Authorization diagnostic retry.
+Retry with pull request write access.
