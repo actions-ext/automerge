@@ -59,7 +59,10 @@ async function githubRequest<T>(path: string, token: string, init: RequestInit =
       ...init.headers,
     },
   });
-  if (!response.ok) throw await responseError(response);
+  if (!response.ok) {
+    const error = await responseError(response);
+    throw new GitHubError(`${init.method || "GET"} ${path}: ${error.message}`, error.status);
+  }
   return (response.status === 204 ? undefined : await response.json()) as T;
 }
 

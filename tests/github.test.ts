@@ -54,4 +54,16 @@ describe("GitHub client", () => {
       expect.objectContaining({ method: "DELETE" }),
     );
   });
+
+  test("reports the failing GitHub request", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ message: "Resource not accessible by integration" }, { status: 403 })),
+    );
+    const client = new GitHubClient("token", "owner/repository");
+
+    await expect(client.removeLabel(12, "automerge")).rejects.toThrow(
+      "DELETE /repos/owner/repository/issues/12/labels/automerge: GitHub returned 403: Resource not accessible by integration",
+    );
+  });
 });
