@@ -20,6 +20,9 @@ It ignores closed pull requests, drafts, and pull requests without an automerge 
 latest commit status is `pending`. Once all reported work is terminal, it requests a SHA-pinned merge. A failed optional check does not prevent the
 request, but GitHub rejects it when any required condition is unsatisfied.
 
+Before merging, the App waits until the active automerge label has been present for 10 seconds, then checks the pull request again. Removing the label
+during this grace period cancels the merge.
+
 When new commits are pushed, the App removes either automerge label. Re-add a label after the new commit is ready to opt in again.
 
 The App prefers squash, then merge commit, then rebase, based on the repository's enabled merge methods.
