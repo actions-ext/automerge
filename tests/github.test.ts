@@ -41,4 +41,17 @@ describe("GitHub client", () => {
     expect(await client.merge(12, "abc123", "squash")).toBe(true);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ sha: "abc123", merge_method: "squash" });
   });
+
+  test("removes a pull request label", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new GitHubClient("token", "owner/repository");
+
+    await client.removeLabel(12, "tag: automerge");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.github.com/repos/owner/repository/issues/12/labels/tag%3A%20automerge",
+      expect.objectContaining({ method: "DELETE" }),
+    );
+  });
 });

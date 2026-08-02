@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-import { pullRequestNumbers, type WebhookPayload } from "../src/events";
+import { pullRequestNumbers, removeAutomergeLabels, type WebhookPayload } from "../src/events";
 import type { GitHubClient, PullRequest } from "../src/github";
 
 function payload(values: Partial<WebhookPayload>): WebhookPayload {
@@ -56,5 +56,24 @@ describe("webhook event routing", () => {
     expect(
       await pullRequestNumbers("pull_request", payload({ action: "closed", pull_request: pullRequest(12) }), github),
     ).toEqual([]);
+    expect(
+      await pullRequestNumbers(
+        "pull_request",
+        payload({ action: "synchronize", pull_request: pullRequest(12) }),
+        github,
+      ),
+    ).toEqual([]);
+  });
+
+  test("removes automerge labels after commits are pushed", async () => {
+    const github = { removeLabel: vi.fn() } as unknown as GitHubClient;
+    const pull = pullRequest(12);
+    pull.labels = [{ name: "automerge" }, { name: "Tag: Automerge" }, { name: "documentation" }];
+
+    await removeAutomergeLabels(github, pull);
+
+    expect(github.removeLabel).toHaveBeenCalledTimes(2);
+    expect(github.removeLabel).toHaveBeenCalledWith(12, "automerge");
+    expect(github.removeLabel).toHaveBeenCalledWith(12, "Tag: Automerge");
   });
 });

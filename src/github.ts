@@ -110,6 +110,12 @@ export class GitHubClient {
     return githubRequest(`/repos/${this.repository}`, this.token);
   }
 
+  async removeLabel(number: number, label: string): Promise<void> {
+    await githubRequest(`/repos/${this.repository}/issues/${number}/labels/${encodeURIComponent(label)}`, this.token, {
+      method: "DELETE",
+    });
+  }
+
   async merge(number: number, sha: string, mergeMethod: MergeMethod): Promise<boolean> {
     try {
       const result = await githubRequest<{ merged: boolean }>(
