@@ -1,3 +1,4 @@
 Initial test commit.
 New commit after automerge opt-in.
 Diagnostic retry.
+Retry with regenerated App key.
