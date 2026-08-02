@@ -39,8 +39,7 @@ Repository permissions:
 - Checks: Read-only
 - Commit statuses: Read-only
 - Contents: Read and write
-- Issues: Read and write
-- Pull requests: Read-only
+- Pull requests: Read and write
 - Metadata: Read-only, granted automatically
 
 Subscribe to these events:
