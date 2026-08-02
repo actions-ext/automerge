@@ -19,6 +19,12 @@ export interface CommitStatus {
   state: "error" | "failure" | "pending" | "success";
 }
 
+export interface IssueEvent {
+  event: string;
+  created_at: string;
+  label?: { name: string };
+}
+
 export interface RepositorySettings {
   allow_merge_commit: boolean;
   allow_rebase_merge: boolean;
@@ -107,6 +113,18 @@ export class GitHubClient {
       if (!latest.has(status.context)) latest.set(status.context, status);
     }
     return [...latest.values()];
+  }
+
+  async issueEvents(number: number): Promise<IssueEvent[]> {
+    const events: IssueEvent[] = [];
+    for (let page = 1; ; page += 1) {
+      const result = await githubRequest<IssueEvent[]>(
+        `/repos/${this.repository}/issues/${number}/events?per_page=100&page=${page}`,
+        this.token,
+      );
+      events.push(...result);
+      if (result.length < 100) return events;
+    }
   }
 
   async repositorySettings(): Promise<RepositorySettings> {
