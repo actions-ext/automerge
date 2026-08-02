@@ -17,7 +17,7 @@ export interface WebhookPayload {
   sha?: string;
 }
 
-const PULL_REQUEST_ACTIONS = new Set(["labeled", "ready_for_review", "reopened", "synchronize"]);
+const PULL_REQUEST_ACTIONS = new Set(["labeled", "ready_for_review", "reopened"]);
 const REVIEW_ACTIONS = new Set(["dismissed", "submitted"]);
 
 function unique(numbers: number[]): number[] {
@@ -28,6 +28,11 @@ async function pullRequestsForCommit(github: GitHubClient, sha: string): Promise
   return (await github.pullRequestsForCommit(sha))
     .filter((pullRequest) => pullRequest.state === "open")
     .map(({ number }) => number);
+}
+
+export async function removeAutomergeLabels(github: GitHubClient, pullRequest: PullRequest): Promise<void> {
+  const labels = pullRequest.labels.filter(({ name }) => AUTOMERGE_LABELS.has(name.trim().toLowerCase()));
+  await Promise.all(labels.map(({ name }) => github.removeLabel(pullRequest.number, name)));
 }
 
 export async function pullRequestNumbers(
@@ -66,6 +71,10 @@ export async function processEvent(event: string, payload: WebhookPayload, env: 
     payload.repository.id,
     payload.repository.full_name,
   );
+  if (event === "pull_request" && payload.action === "synchronize" && payload.pull_request) {
+    await removeAutomergeLabels(github, payload.pull_request);
+    return;
+  }
   const numbers = await pullRequestNumbers(event, payload, github);
   await Promise.all(numbers.map((number) => evaluatePullRequest(github, number, payload.repository!.full_name)));
 }

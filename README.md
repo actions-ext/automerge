@@ -11,7 +11,7 @@ rulesets, and other merge requirements. Do not add the App to a branch-protectio
 The App evaluates labeled pull requests when:
 
 - an automerge label is added
-- the pull request is reopened, marked ready, or receives new commits
+- the pull request is reopened or marked ready
 - a check suite completes
 - a legacy commit status changes
 - a review is submitted or dismissed
@@ -19,6 +19,8 @@ The App evaluates labeled pull requests when:
 It ignores closed pull requests, drafts, and pull requests without an automerge label. It waits while any latest check run is not `completed` or any
 latest commit status is `pending`. Once all reported work is terminal, it requests a SHA-pinned merge. A failed optional check does not prevent the
 request, but GitHub rejects it when any required condition is unsatisfied.
+
+When new commits are pushed, the App removes either automerge label. Re-add a label after the new commit is ready to opt in again.
 
 The App prefers squash, then merge commit, then rebase, based on the repository's enabled merge methods.
 
@@ -37,6 +39,7 @@ Repository permissions:
 - Checks: Read-only
 - Commit statuses: Read-only
 - Contents: Read and write
+- Issues: Read and write
 - Pull requests: Read-only
 - Metadata: Read-only, granted automatically
 
