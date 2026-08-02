@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 
 import { handleRequest } from "../src/index";
 
@@ -42,6 +42,15 @@ describe("worker", () => {
   test("ignores unsupported signed events", async () => {
     const response = await handleRequest(webhook("{}", "issues"), env);
     expect(response.status).toBe(202);
+  });
+
+  test("continues processing after acknowledging a webhook", async () => {
+    const context = { waitUntil: vi.fn() };
+    const response = await handleRequest(webhook("{}", "issues"), env, context);
+
+    expect(response.status).toBe(202);
+    expect(context.waitUntil).toHaveBeenCalledOnce();
+    await context.waitUntil.mock.calls[0][0];
   });
 
   test("reports webhook processing errors", async () => {

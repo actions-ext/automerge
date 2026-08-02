@@ -1,7 +1,13 @@
 import { describe, expect, test } from "vitest";
 
-import { evaluatePullRequest, hasAutomergeLabel, mergeMethod, type AutomergeGitHub } from "../src/automerge";
-import type { CheckRun, CommitStatus, MergeMethod, PullRequest, RepositorySettings } from "../src/github";
+import {
+  evaluatePullRequest,
+  gracePeriodRemaining,
+  hasAutomergeLabel,
+  mergeMethod,
+  type AutomergeGitHub,
+} from "../src/automerge";
+import type { CheckRun, CommitStatus, IssueEvent, MergeMethod, PullRequest, RepositorySettings } from "../src/github";
 
 class FakeGitHub implements AutomergeGitHub {
   pull: PullRequest = {
@@ -13,6 +19,7 @@ class FakeGitHub implements AutomergeGitHub {
   };
   checks: CheckRun[] = [{ status: "completed" }];
   commitStatuses: CommitStatus[] = [{ context: "legacy", state: "success" }];
+  events: IssueEvent[] = [{ event: "labeled", created_at: "2000-01-01T00:00:00Z", label: { name: "automerge" } }];
   settings: RepositorySettings = {
     allow_merge_commit: true,
     allow_rebase_merge: true,
@@ -27,6 +34,10 @@ class FakeGitHub implements AutomergeGitHub {
 
   async checkRuns(): Promise<CheckRun[]> {
     return this.checks;
+  }
+
+  async issueEvents(): Promise<IssueEvent[]> {
+    return this.events;
   }
 
   async statuses(): Promise<CommitStatus[]> {
@@ -55,6 +66,51 @@ describe("automerge labels", () => {
     github.pull.labels = [{ name: "merge" }];
     expect(hasAutomergeLabel(github.pull)).toBe(false);
   });
+});
+
+test("calculates the remaining grace period from the active label", () => {
+  const github = new FakeGitHub();
+  github.pull.labels = [{ name: "Tag: Automerge" }];
+  github.events = [
+    { event: "labeled", created_at: "1970-01-01T00:00:04Z", label: { name: "automerge" } },
+    { event: "labeled", created_at: "1970-01-01T00:00:05Z", label: { name: "tag: automerge" } },
+  ];
+
+  expect(gracePeriodRemaining(github.pull, github.events, 12_000)).toBe(3_000);
+});
+
+test("does not merge when the label is removed during the grace period", async () => {
+  const github = new FakeGitHub();
+  github.events = [{ event: "labeled", created_at: "1970-01-01T00:00:05Z", label: { name: "automerge" } }];
+  const waits: number[] = [];
+
+  expect(
+    await evaluatePullRequest(github, 12, "owner/repository", {
+      now: () => 10_000,
+      wait: async (milliseconds) => {
+        waits.push(milliseconds);
+        github.pull.labels = [];
+      },
+    }),
+  ).toBe(false);
+  expect(waits).toEqual([5_000]);
+  expect(github.merges).toEqual([]);
+});
+
+test("merges when the label remains after the grace period", async () => {
+  const github = new FakeGitHub();
+  github.events = [{ event: "labeled", created_at: "1970-01-01T00:00:05Z", label: { name: "automerge" } }];
+  let now = 10_000;
+
+  expect(
+    await evaluatePullRequest(github, 12, "owner/repository", {
+      now: () => now,
+      wait: async (milliseconds) => {
+        now += milliseconds;
+      },
+    }),
+  ).toBe(true);
+  expect(github.merges).toEqual([{ number: 12, sha: "abc123", method: "squash" }]);
 });
 
 test("waits until check runs and commit statuses finish", async () => {
