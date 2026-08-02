@@ -18,7 +18,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     return new Response(null, { status: 202 });
   } catch (error) {
     console.error(error);
-    return new Response("Webhook processing failed", { status: 500 });
+    return new Response(error instanceof Error ? error.message : "Webhook processing failed", { status: 500 });
   }
 }
 

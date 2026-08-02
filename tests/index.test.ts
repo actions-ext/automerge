@@ -43,4 +43,17 @@ describe("worker", () => {
     const response = await handleRequest(webhook("{}", "issues"), env);
     expect(response.status).toBe(202);
   });
+
+  test("reports webhook processing errors", async () => {
+    const body = JSON.stringify({
+      action: "synchronize",
+      installation: { id: 1 },
+      repository: { id: 1, full_name: "owner/repository" },
+      pull_request: { number: 1, labels: [{ name: "automerge" }] },
+    });
+    const response = await handleRequest(webhook(body, "pull_request"), env);
+
+    expect(response.status).toBe(500);
+    expect(await response.text()).toBe("GitHub App private key must be an RSA PEM private key");
+  });
 });
