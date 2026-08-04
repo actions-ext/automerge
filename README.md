@@ -3,6 +3,12 @@
 GitHub App that merges an eligible pull request after every reported check run and commit status finishes. Add either the `automerge` or
 `tag: automerge` label to opt a pull request in.
 
+- Website: <https://automerge.python-templates.dev>
+- Install: <https://github.com/apps/python-templates-automerge/installations/new>
+- Support: <https://automerge.python-templates.dev/support>
+- Privacy: <https://automerge.python-templates.dev/privacy>
+- Marketplace assets: [`docs/img`](docs/img)
+
 The App asks GitHub to merge the exact checked head commit. GitHub remains responsible for enforcing required checks, reviews, branch protection,
 rulesets, and other merge requirements. Do not add the App to a branch-protection or ruleset bypass list.
 

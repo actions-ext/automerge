@@ -23,6 +23,17 @@ function webhook(body: string, event: string, signature?: string): Request {
 }
 
 describe("worker", () => {
+  test.each([
+    ["/", "Merge when GitHub says it is ready."],
+    ["/support", "Get help with Automerge"],
+    ["/privacy", "Privacy policy"],
+  ])("serves %s", async (path, content) => {
+    const response = await handleRequest(new Request(`https://automerge.example${path}`), env);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Content-Type")).toBe("text/html; charset=utf-8");
+    expect(await response.text()).toContain(content);
+  });
+
   test("reports health", async () => {
     const response = await handleRequest(new Request("https://automerge.example/healthz"), env);
     expect(response.status).toBe(200);
@@ -41,6 +52,11 @@ describe("worker", () => {
 
   test("ignores unsupported signed events", async () => {
     const response = await handleRequest(webhook("{}", "issues"), env);
+    expect(response.status).toBe(202);
+  });
+
+  test("acknowledges free Marketplace plan events", async () => {
+    const response = await handleRequest(webhook('{"action":"purchased"}', "marketplace_purchase"), env);
     expect(response.status).toBe(202);
   });
 

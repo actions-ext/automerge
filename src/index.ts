@@ -1,10 +1,14 @@
 import { processEvent, type Env } from "./events";
 import { verifyWebhook } from "./crypto";
+import { landingPage, privacyPage, supportPage } from "./pages";
 
 type WebhookContext = Pick<ExecutionContext, "waitUntil">;
 
 export async function handleRequest(request: Request, env: Env, context?: WebhookContext): Promise<Response> {
   const { pathname } = new URL(request.url);
+  if (request.method === "GET" && pathname === "/") return landingPage();
+  if (request.method === "GET" && pathname === "/support") return supportPage();
+  if (request.method === "GET" && pathname === "/privacy") return privacyPage();
   if (request.method === "GET" && pathname === "/healthz") return Response.json({ status: "ok" });
   if (request.method !== "POST" || pathname !== "/webhook") return new Response("Not found", { status: 404 });
 
