@@ -23,7 +23,7 @@ export async function handleRequest(request: Request, env: Env, context?: Webhoo
   if (context) {
     context.waitUntil(
       processing.catch((error) => {
-        console.error(error);
+        console.error(error instanceof Error ? error.message : error);
       }),
     );
     return new Response(null, { status: 202 });
@@ -32,7 +32,7 @@ export async function handleRequest(request: Request, env: Env, context?: Webhoo
     await processing;
     return new Response(null, { status: 202 });
   } catch (error) {
-    console.error(error);
+    console.error(error instanceof Error ? error.message : error);
     return new Response(error instanceof Error ? error.message : "Webhook processing failed", { status: 500 });
   }
 }
