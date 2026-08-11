@@ -150,7 +150,10 @@ export class GitHubClient {
       );
       return result.merged;
     } catch (error) {
-      if (error instanceof GitHubError && (error.status === 405 || error.status === 409)) return false;
+      if (error instanceof GitHubError && (error.status === 405 || error.status === 409)) {
+        console.error(error.message);
+        return false;
+      }
       throw error;
     }
   }
