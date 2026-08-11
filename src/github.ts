@@ -6,6 +6,7 @@ export interface PullRequest {
   number: number;
   state: "open" | "closed";
   draft: boolean;
+  mergeable: boolean | null;
   labels: Array<{ name: string }>;
   head: { sha: string };
 }

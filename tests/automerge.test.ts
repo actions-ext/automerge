@@ -5,6 +5,8 @@ import {
   gracePeriodRemaining,
   hasAutomergeLabel,
   mergeMethod,
+  MERGEABILITY_POLL_INTERVAL_MS,
+  MERGEABILITY_POLL_LIMIT,
   type AutomergeGitHub,
 } from "../src/automerge";
 import type { CheckRun, CommitStatus, IssueEvent, MergeMethod, PullRequest, RepositorySettings } from "../src/github";
@@ -14,6 +16,7 @@ class FakeGitHub implements AutomergeGitHub {
     number: 12,
     state: "open",
     draft: false,
+    mergeable: true,
     labels: [{ name: "automerge" }],
     head: { sha: "abc123" },
   };
@@ -131,6 +134,50 @@ test("merges when the label event is not yet visible", async () => {
   ).resolves.toBe(true);
   expect(waits).toEqual([10_000]);
   expect(github.merges).toEqual([{ number: 12, sha: "abc123", method: "squash" }]);
+});
+
+test("waits for GitHub to calculate mergeability", async () => {
+  const github = new FakeGitHub();
+  const waits: number[] = [];
+  let requests = 0;
+  github.pullRequest = async () => {
+    requests += 1;
+    return { ...github.pull, mergeable: requests >= 3 ? true : null };
+  };
+
+  expect(
+    await evaluatePullRequest(github, 12, "owner/repository", {
+      wait: async (milliseconds) => {
+        waits.push(milliseconds);
+      },
+    }),
+  ).toBe(true);
+  expect(waits).toEqual([MERGEABILITY_POLL_INTERVAL_MS, MERGEABILITY_POLL_INTERVAL_MS]);
+  expect(github.merges).toEqual([{ number: 12, sha: "abc123", method: "squash" }]);
+});
+
+test("stops polling when GitHub does not calculate mergeability", async () => {
+  const github = new FakeGitHub();
+  github.pull.mergeable = null;
+  const waits: number[] = [];
+
+  expect(
+    await evaluatePullRequest(github, 12, "owner/repository", {
+      wait: async (milliseconds) => {
+        waits.push(milliseconds);
+      },
+    }),
+  ).toBe(false);
+  expect(waits).toEqual(Array(MERGEABILITY_POLL_LIMIT).fill(MERGEABILITY_POLL_INTERVAL_MS));
+  expect(github.merges).toEqual([]);
+});
+
+test("does not attempt to merge a conflicting pull request", async () => {
+  const github = new FakeGitHub();
+  github.pull.mergeable = false;
+
+  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
+  expect(github.merges).toEqual([]);
 });
 
 test("waits until check runs and commit statuses finish", async () => {
