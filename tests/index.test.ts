@@ -1,6 +1,6 @@
 import { createHmac } from "node:crypto";
 
-import { describe, expect, test, vi } from "vitest";
+import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { handleRequest } from "../src/index";
 
@@ -21,6 +21,10 @@ function webhook(body: string, event: string, signature?: string): Request {
     body,
   });
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe("worker", () => {
   test.each([
@@ -67,6 +71,23 @@ describe("worker", () => {
     expect(response.status).toBe(202);
     expect(context.waitUntil).toHaveBeenCalledOnce();
     await context.waitUntil.mock.calls[0][0];
+  });
+
+  test("logs asynchronous webhook error messages", async () => {
+    const errorMock = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const body = JSON.stringify({
+      action: "synchronize",
+      installation: { id: 1 },
+      repository: { id: 1, full_name: "owner/repository" },
+      pull_request: { number: 1, labels: [{ name: "automerge" }] },
+    });
+    const context = { waitUntil: vi.fn() };
+
+    const response = await handleRequest(webhook(body, "pull_request"), env, context);
+    await context.waitUntil.mock.calls[0][0];
+
+    expect(response.status).toBe(202);
+    expect(errorMock).toHaveBeenCalledWith("GitHub App private key must be an RSA PEM private key");
   });
 
   test("reports webhook processing errors", async () => {
