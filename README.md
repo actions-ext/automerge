@@ -27,7 +27,8 @@ latest commit status is `pending`. Once all reported work is terminal, it reques
 request, but GitHub rejects it when any required condition is unsatisfied.
 
 Before merging, the App waits until the active automerge label has been present for 10 seconds, then checks the pull request again. Removing the label
-during this grace period cancels the merge.
+during this grace period cancels the merge. If GitHub has not exposed the matching label event yet, the grace period starts when the App first observes
+the label instead of waiting repeatedly for event history.
 
 When new commits are pushed, the App removes either automerge label. Re-add a label after the new commit is ready to opt in again.
 

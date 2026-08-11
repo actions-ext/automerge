@@ -113,6 +113,26 @@ test("merges when the label remains after the grace period", async () => {
   expect(github.merges).toEqual([{ number: 12, sha: "abc123", method: "squash" }]);
 });
 
+test("merges when the label event is not yet visible", async () => {
+  const github = new FakeGitHub();
+  github.events = [];
+  const waits: number[] = [];
+  let now = 10_000;
+
+  await expect(
+    evaluatePullRequest(github, 12, "owner/repository", {
+      now: () => now,
+      wait: async (milliseconds) => {
+        waits.push(milliseconds);
+        if (waits.length > 1) throw new Error("grace period repeated");
+        now += milliseconds;
+      },
+    }),
+  ).resolves.toBe(true);
+  expect(waits).toEqual([10_000]);
+  expect(github.merges).toEqual([{ number: 12, sha: "abc123", method: "squash" }]);
+});
+
 test("waits until check runs and commit statuses finish", async () => {
   const github = new FakeGitHub();
   github.checks = [{ status: "completed" }, { status: "in_progress" }];
