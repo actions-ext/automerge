@@ -2,6 +2,7 @@ import type { CheckRun, CommitStatus, IssueEvent, MergeMethod, PullRequest, Repo
 
 export const AUTOMERGE_LABELS = new Set(["automerge", "tag: automerge"]);
 export const AUTOMERGE_GRACE_PERIOD_MS = 10_000;
+export const MERGE_ATTEMPT_LIMIT = 3;
 export const MERGEABILITY_POLL_INTERVAL_MS = 1_000;
 export const MERGEABILITY_POLL_LIMIT = 10;
 
@@ -67,6 +68,7 @@ export async function evaluatePullRequest(
   let pullRequest = await github.pullRequest(number);
   const labelObservedAt = now();
   if (pullRequest.state !== "open" || pullRequest.draft || !hasAutomergeLabel(pullRequest)) return false;
+  let mergeAttempts = 0;
   let mergeabilityPolls = 0;
 
   for (;;) {
@@ -112,7 +114,18 @@ export async function evaluatePullRequest(
       return false;
     }
     const merged = await github.merge(number, pullRequest.head.sha, method);
-    console.log(merged ? `Merged ${repository}#${number}` : `GitHub blocked merge of ${repository}#${number}`);
-    return merged;
+    if (merged) {
+      console.log(`Merged ${repository}#${number}`);
+      return true;
+    }
+    mergeAttempts += 1;
+    if (mergeAttempts >= MERGE_ATTEMPT_LIMIT) {
+      console.log(`GitHub blocked merge of ${repository}#${number}`);
+      return false;
+    }
+    console.log(`Retrying merge of ${repository}#${number}`);
+    await waitFor(MERGEABILITY_POLL_INTERVAL_MS);
+    pullRequest = await github.pullRequest(number);
+    if (pullRequest.state !== "open" || pullRequest.draft || !hasAutomergeLabel(pullRequest)) return false;
   }
 }

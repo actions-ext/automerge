@@ -5,6 +5,7 @@ import {
   gracePeriodRemaining,
   hasAutomergeLabel,
   mergeMethod,
+  MERGE_ATTEMPT_LIMIT,
   MERGEABILITY_POLL_INTERVAL_MS,
   MERGEABILITY_POLL_LIMIT,
   type AutomergeGitHub,
@@ -201,12 +202,45 @@ test("asks GitHub to merge after all actions finish", async () => {
   expect(github.merges).toEqual([{ number: 12, sha: "abc123", method: "squash" }]);
 });
 
-test("leaves required-condition enforcement to GitHub", async () => {
+test("retries when another pull request merges first", async () => {
+  const github = new FakeGitHub();
+  const mergeResults = [false, true];
+  const waits: number[] = [];
+  let requests = 0;
+  github.pullRequest = async () => {
+    requests += 1;
+    return { ...github.pull, mergeable: requests === 2 ? null : true };
+  };
+  github.merge = async (number, sha, method) => {
+    github.merges.push({ number, sha, method });
+    return mergeResults.shift() || false;
+  };
+
+  expect(
+    await evaluatePullRequest(github, 12, "owner/repository", {
+      wait: async (milliseconds) => {
+        waits.push(milliseconds);
+      },
+    }),
+  ).toBe(true);
+  expect(waits).toEqual([MERGEABILITY_POLL_INTERVAL_MS, MERGEABILITY_POLL_INTERVAL_MS]);
+  expect(github.merges).toHaveLength(2);
+});
+
+test("stops retrying when GitHub continues to block the merge", async () => {
   const github = new FakeGitHub();
   github.mergeResult = false;
+  const waits: number[] = [];
 
-  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
-  expect(github.merges).toHaveLength(1);
+  expect(
+    await evaluatePullRequest(github, 12, "owner/repository", {
+      wait: async (milliseconds) => {
+        waits.push(milliseconds);
+      },
+    }),
+  ).toBe(false);
+  expect(waits).toEqual(Array(MERGE_ATTEMPT_LIMIT - 1).fill(MERGEABILITY_POLL_INTERVAL_MS));
+  expect(github.merges).toHaveLength(MERGE_ATTEMPT_LIMIT);
 });
 
 test.each([
