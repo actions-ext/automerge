@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test, vi } from "vitest";
 import { GitHubClient } from "../src/github";
 
 afterEach(() => {
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -39,10 +40,14 @@ describe("GitHub client", () => {
   });
 
   test("returns false when GitHub blocks a merge", async () => {
+    const errorMock = vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ message: "Merge blocked" }, { status: 405 })));
     const client = new GitHubClient("token", "owner/repository");
 
     expect(await client.merge(12, "abc123", "squash")).toBe(false);
+    expect(errorMock).toHaveBeenCalledWith(
+      "PUT /repos/owner/repository/pulls/12/merge: GitHub returned 405: Merge blocked",
+    );
   });
 
   test("pins a successful merge to the checked head commit", async () => {
