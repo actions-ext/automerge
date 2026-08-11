@@ -28,7 +28,12 @@ export function mergeMethod(settings: RepositorySettings): MergeMethod | null {
   return null;
 }
 
-export function gracePeriodRemaining(pullRequest: PullRequest, events: IssueEvent[], now: number): number {
+export function gracePeriodRemaining(
+  pullRequest: PullRequest,
+  events: IssueEvent[],
+  now: number,
+  missingEventAddedAt = now,
+): number {
   const activeLabels = new Set(
     pullRequest.labels.map(({ name }) => name.trim().toLowerCase()).filter((name) => AUTOMERGE_LABELS.has(name)),
   );
@@ -40,8 +45,8 @@ export function gracePeriodRemaining(pullRequest: PullRequest, events: IssueEven
       latestAdditions.set(label, Math.max(latestAdditions.get(label) || 0, createdAt));
     }
   }
-  const addedAt = Math.min(...latestAdditions.values());
-  if (!Number.isFinite(addedAt)) return AUTOMERGE_GRACE_PERIOD_MS;
+  const eventAddedAt = Math.min(...latestAdditions.values());
+  const addedAt = Number.isFinite(eventAddedAt) ? eventAddedAt : missingEventAddedAt;
   return Math.min(AUTOMERGE_GRACE_PERIOD_MS, Math.max(0, AUTOMERGE_GRACE_PERIOD_MS - (now - addedAt)));
 }
 
@@ -58,6 +63,7 @@ export async function evaluatePullRequest(
   const now = options.now || Date.now;
   const waitFor = options.wait || wait;
   let pullRequest = await github.pullRequest(number);
+  const labelObservedAt = now();
   if (pullRequest.state !== "open" || pullRequest.draft || !hasAutomergeLabel(pullRequest)) return false;
 
   for (;;) {
@@ -70,7 +76,7 @@ export async function evaluatePullRequest(
       return false;
     }
 
-    const remaining = gracePeriodRemaining(pullRequest, await github.issueEvents(number), now());
+    const remaining = gracePeriodRemaining(pullRequest, await github.issueEvents(number), now(), labelObservedAt);
     if (remaining > 0) {
       console.log(`Waiting for automerge grace period on ${repository}#${number}`);
       await waitFor(remaining);
