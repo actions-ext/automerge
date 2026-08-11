@@ -8,7 +8,7 @@ function payload(values: Partial<WebhookPayload>): WebhookPayload {
 }
 
 function pullRequest(number: number, state: "open" | "closed" = "open"): PullRequest {
-  return { number, state, draft: false, labels: [], head: { sha: "abc123" } };
+  return { number, state, draft: false, mergeable: true, labels: [], head: { sha: "abc123" } };
 }
 
 describe("webhook event routing", () => {

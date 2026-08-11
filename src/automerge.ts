@@ -2,6 +2,8 @@ import type { CheckRun, CommitStatus, IssueEvent, MergeMethod, PullRequest, Repo
 
 export const AUTOMERGE_LABELS = new Set(["automerge", "tag: automerge"]);
 export const AUTOMERGE_GRACE_PERIOD_MS = 10_000;
+export const MERGEABILITY_POLL_INTERVAL_MS = 1_000;
+export const MERGEABILITY_POLL_LIMIT = 10;
 
 export interface AutomergeGitHub {
   pullRequest(number: number): Promise<PullRequest>;
@@ -65,8 +67,27 @@ export async function evaluatePullRequest(
   let pullRequest = await github.pullRequest(number);
   const labelObservedAt = now();
   if (pullRequest.state !== "open" || pullRequest.draft || !hasAutomergeLabel(pullRequest)) return false;
+  let mergeabilityPolls = 0;
 
   for (;;) {
+    if (pullRequest.mergeable === null) {
+      if (mergeabilityPolls >= MERGEABILITY_POLL_LIMIT) {
+        console.log(`GitHub did not calculate mergeability for ${repository}#${number}`);
+        return false;
+      }
+      mergeabilityPolls += 1;
+      console.log(`Waiting for GitHub to calculate mergeability for ${repository}#${number}`);
+      await waitFor(MERGEABILITY_POLL_INTERVAL_MS);
+      pullRequest = await github.pullRequest(number);
+      if (pullRequest.state !== "open" || pullRequest.draft || !hasAutomergeLabel(pullRequest)) return false;
+      continue;
+    }
+    if (!pullRequest.mergeable) {
+      console.log(`GitHub reports merge conflicts for ${repository}#${number}`);
+      return false;
+    }
+    mergeabilityPolls = 0;
+
     const [checks, statuses] = await Promise.all([
       github.checkRuns(pullRequest.head.sha),
       github.statuses(pullRequest.head.sha),

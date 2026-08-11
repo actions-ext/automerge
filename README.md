@@ -26,6 +26,9 @@ It ignores closed pull requests, drafts, and pull requests without an automerge 
 latest commit status is `pending`. Once all reported work is terminal, it requests a SHA-pinned merge. A failed optional check does not prevent the
 request, but GitHub rejects it when any required condition is unsatisfied.
 
+The App also waits up to 10 seconds for GitHub to calculate whether the current head can merge cleanly with the latest base branch. This calculation
+can be pending after another pull request merges. Pull requests with merge conflicts are left open.
+
 Before merging, the App waits until the active automerge label has been present for 10 seconds, then checks the pull request again. Removing the label
 during this grace period cancels the merge. If GitHub has not exposed the matching label event yet, the grace period starts when the App first observes
 the label instead of waiting repeatedly for event history.
