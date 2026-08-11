@@ -31,12 +31,12 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Deploy Worker
+      - name: Upload Worker version
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         with:
           accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
           apiToken: ${{ secrets.CLOUDFLARE_TEMPLATES_API_TOKEN }}
-          command: deploy
+          command: deploy --tag ${{ github.sha }}
           secrets: |
             GITHUB_APP_PRIVATE_KEY
             GITHUB_WEBHOOK_SECRET
@@ -47,3 +47,11 @@ jobs:
           GITHUB_APP_ID: ${{ vars.AUTOMERGE_APP_ID }}
           GITHUB_APP_PRIVATE_KEY: ${{ secrets.AUTOMERGE_APP_PRIVATE_KEY }}
           GITHUB_WEBHOOK_SECRET: ${{ secrets.AUTOMERGE_WEBHOOK_SECRET }}
+
+      - name: Activate Worker version
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        with:
+          accountId: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_TEMPLATES_API_TOKEN }}
+          command: versions deploy --version-tag ${{ github.sha }}@100% -y
+          wranglerVersion: 4.118.0
