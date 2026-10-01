@@ -1,6 +1,6 @@
 # Automerge
 
-GitHub App that merges an eligible pull request after every reported check run and commit status finishes. Add either the `automerge` or
+GitHub App that merges an eligible pull request after every reported check run and commit status passes. Add either the `automerge` or
 `tag: automerge` label to opt a pull request in.
 
 - Website: <https://automerge.python-templates.dev>
@@ -22,9 +22,8 @@ The App evaluates labeled pull requests when:
 - a legacy commit status changes
 - a review is submitted or dismissed
 
-It ignores closed pull requests, drafts, and pull requests without an automerge label. It waits while any latest check run is not `completed` or any
-latest commit status is `pending`. Once all reported work is terminal, it requests a SHA-pinned merge. A failed optional check does not prevent the
-request, but GitHub rejects it when any required condition is unsatisfied.
+It ignores closed pull requests, drafts, and pull requests without an automerge label. It waits unless every latest check run has a `success`
+conclusion and every latest commit status is `success`. Once all reported work passes, it requests a SHA-pinned merge.
 
 The App also waits up to 10 seconds for GitHub to calculate whether the current head can merge cleanly with the latest base branch. This calculation
 can be pending after another pull request merges. Pull requests with merge conflicts are left open.

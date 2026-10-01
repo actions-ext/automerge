@@ -94,8 +94,11 @@ export async function evaluatePullRequest(
       github.checkRuns(pullRequest.head.sha),
       github.statuses(pullRequest.head.sha),
     ]);
-    if (checks.some((check) => check.status !== "completed") || statuses.some((status) => status.state === "pending")) {
-      console.log(`Waiting for checks on ${repository}#${number}`);
+    if (
+      checks.some((check) => check.status !== "completed" || check.conclusion !== "success") ||
+      statuses.some((status) => status.state !== "success")
+    ) {
+      console.log(`Checks have not passed on ${repository}#${number}`);
       return false;
     }
 
