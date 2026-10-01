@@ -21,7 +21,7 @@ class FakeGitHub implements AutomergeGitHub {
     labels: [{ name: "automerge" }],
     head: { sha: "abc123" },
   };
-  checks: CheckRun[] = [{ status: "completed" }];
+  checks: CheckRun[] = [{ status: "completed", conclusion: "success" }];
   commitStatuses: CommitStatus[] = [{ context: "legacy", state: "success" }];
   events: IssueEvent[] = [{ event: "labeled", created_at: "2000-01-01T00:00:00Z", label: { name: "automerge" } }];
   settings: RepositorySettings = {
@@ -183,19 +183,44 @@ test("does not attempt to merge a conflicting pull request", async () => {
 
 test("waits until check runs and commit statuses finish", async () => {
   const github = new FakeGitHub();
-  github.checks = [{ status: "completed" }, { status: "in_progress" }];
+  github.checks = [
+    { status: "completed", conclusion: "success" },
+    { status: "in_progress", conclusion: null },
+  ];
   github.commitStatuses = [{ context: "legacy", state: "pending" }];
 
   expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
   expect(github.merges).toEqual([]);
 });
 
-test("asks GitHub to merge after all actions finish", async () => {
+test.each(["action_required", "cancelled", "failure", "neutral", "skipped", "stale", "timed_out", null])(
+  "does not merge when a check run concludes %s",
+  async (conclusion) => {
+    const github = new FakeGitHub();
+    github.checks = [{ status: "completed", conclusion }];
+
+    expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
+    expect(github.merges).toEqual([]);
+  },
+);
+
+test.each(["error", "failure"] as const)("does not merge when a commit status is %s", async (state) => {
   const github = new FakeGitHub();
-  github.checks = [{ status: "completed" }, { status: "completed" }];
+  github.commitStatuses = [{ context: "legacy", state }];
+
+  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
+  expect(github.merges).toEqual([]);
+});
+
+test("asks GitHub to merge after all checks pass", async () => {
+  const github = new FakeGitHub();
+  github.checks = [
+    { status: "completed", conclusion: "success" },
+    { status: "completed", conclusion: "success" },
+  ];
   github.commitStatuses = [
     { context: "required", state: "success" },
-    { context: "optional", state: "failure" },
+    { context: "optional", state: "success" },
   ];
 
   expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(true);
