@@ -12,6 +12,7 @@ export interface PullRequest {
 }
 
 export interface CheckRun {
+  name: string;
   status: string;
   conclusion: string | null;
 }
