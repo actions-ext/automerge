@@ -21,7 +21,7 @@ class FakeGitHub implements AutomergeGitHub {
     labels: [{ name: "automerge" }],
     head: { sha: "abc123" },
   };
-  checks: CheckRun[] = [{ status: "completed", conclusion: "success" }];
+  checks: CheckRun[] = [{ name: "build", status: "completed", conclusion: "success" }];
   commitStatuses: CommitStatus[] = [{ context: "legacy", state: "success" }];
   events: IssueEvent[] = [{ event: "labeled", created_at: "2000-01-01T00:00:00Z", label: { name: "automerge" } }];
   settings: RepositorySettings = {
@@ -184,8 +184,8 @@ test("does not attempt to merge a conflicting pull request", async () => {
 test("waits until check runs and commit statuses finish", async () => {
   const github = new FakeGitHub();
   github.checks = [
-    { status: "completed", conclusion: "success" },
-    { status: "in_progress", conclusion: null },
+    { name: "build", status: "completed", conclusion: "success" },
+    { name: "build", status: "in_progress", conclusion: null },
   ];
   github.commitStatuses = [{ context: "legacy", state: "pending" }];
 
@@ -197,7 +197,7 @@ test.each(["action_required", "cancelled", "failure", "neutral", "skipped", "sta
   "does not merge when a check run concludes %s",
   async (conclusion) => {
     const github = new FakeGitHub();
-    github.checks = [{ status: "completed", conclusion }];
+    github.checks = [{ name: "build", status: "completed", conclusion }];
 
     expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
     expect(github.merges).toEqual([]);
@@ -215,8 +215,8 @@ test.each(["error", "failure"] as const)("does not merge when a commit status is
 test("asks GitHub to merge after all checks pass", async () => {
   const github = new FakeGitHub();
   github.checks = [
-    { status: "completed", conclusion: "success" },
-    { status: "completed", conclusion: "success" },
+    { name: "build", status: "completed", conclusion: "success" },
+    { name: "build", status: "completed", conclusion: "success" },
   ];
   github.commitStatuses = [
     { context: "required", state: "success" },
@@ -287,4 +287,71 @@ test("selects the first enabled merge method", () => {
     "rebase",
   );
   expect(mergeMethod({ allow_squash_merge: false, allow_merge_commit: false, allow_rebase_merge: false })).toBeNull();
+});
+
+test.each(["codecov/patch", "codecov/project"])("merges after completed %s failures", async (name) => {
+  const github = new FakeGitHub();
+  github.checks.push({ name, status: "completed", conclusion: "failure" });
+
+  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(true);
+  expect(github.merges).toEqual([{ number: 12, sha: "abc123", method: "squash" }]);
+});
+
+test.each([
+  { context: "codecov/patch", state: "failure" },
+  { context: "codecov/patch", state: "error" },
+  { context: "codecov/project", state: "failure" },
+  { context: "codecov/project", state: "error" },
+] as const)("merges after $context commit status $state", async (status) => {
+  const github = new FakeGitHub();
+  github.commitStatuses.push(status);
+
+  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(true);
+  expect(github.merges).toEqual([{ number: 12, sha: "abc123", method: "squash" }]);
+});
+
+test.each(["codecov/patch", "codecov/project"])("waits for pending %s check runs", async (name) => {
+  const github = new FakeGitHub();
+  github.checks.push({ name, status: "in_progress", conclusion: null });
+
+  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
+  expect(github.merges).toEqual([]);
+});
+
+test.each(["codecov/patch", "codecov/project"])("waits for pending %s commit statuses", async (context) => {
+  const github = new FakeGitHub();
+  github.commitStatuses.push({ context, state: "pending" });
+
+  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
+  expect(github.merges).toEqual([]);
+});
+
+test("failed build checks still block merges with failed Codecov results", async () => {
+  const github = new FakeGitHub();
+  github.checks = [
+    { name: "build", status: "completed", conclusion: "failure" },
+    { name: "codecov/patch", status: "completed", conclusion: "failure" },
+  ];
+  github.commitStatuses.push({ context: "codecov/project", state: "failure" });
+
+  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
+  expect(github.merges).toEqual([]);
+});
+
+test("failed build statuses still block merges with failed Codecov results", async () => {
+  const github = new FakeGitHub();
+  github.checks.push({ name: "codecov/patch", status: "completed", conclusion: "failure" });
+  github.commitStatuses.push({ context: "build", state: "failure" });
+
+  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
+  expect(github.merges).toEqual([]);
+});
+
+test.each(["codecov/build", "codecov/patch-build"])("does not exempt an unlisted check named %s", async (name) => {
+  const github = new FakeGitHub();
+  github.checks.push({ name, status: "completed", conclusion: "failure" });
+  github.commitStatuses.push({ context: name, state: "failure" });
+
+  expect(await evaluatePullRequest(github, 12, "owner/repository")).toBe(false);
+  expect(github.merges).toEqual([]);
 });

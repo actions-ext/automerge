@@ -1,6 +1,7 @@
 import type { CheckRun, CommitStatus, IssueEvent, MergeMethod, PullRequest, RepositorySettings } from "./github";
 
 export const AUTOMERGE_LABELS = new Set(["automerge", "tag: automerge"]);
+export const NON_BLOCKING_CHECKS = new Set(["codecov/patch", "codecov/project"]);
 export const AUTOMERGE_GRACE_PERIOD_MS = 10_000;
 export const MERGE_ATTEMPT_LIMIT = 3;
 export const MERGEABILITY_POLL_INTERVAL_MS = 1_000;
@@ -95,8 +96,14 @@ export async function evaluatePullRequest(
       github.statuses(pullRequest.head.sha),
     ]);
     if (
-      checks.some((check) => check.status !== "completed" || check.conclusion !== "success") ||
-      statuses.some((status) => status.state !== "success")
+      checks.some(
+        (check) =>
+          check.status !== "completed" || (check.conclusion !== "success" && !NON_BLOCKING_CHECKS.has(check.name)),
+      ) ||
+      statuses.some(
+        (status) =>
+          status.state === "pending" || (status.state !== "success" && !NON_BLOCKING_CHECKS.has(status.context)),
+      )
     ) {
       console.log(`Checks have not passed on ${repository}#${number}`);
       return false;
