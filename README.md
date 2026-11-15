@@ -1,7 +1,7 @@
 # Automerge
 
-GitHub App that merges an eligible pull request after checks finish and blocking checks pass. Add either the `automerge` or
-`tag: automerge` label to opt a pull request in.
+Automerge is a GitHub App that merges labeled pull requests after checks finish and blocking checks pass. Add an `automerge` or
+`tag: automerge` label to enable merging for a pull request.
 
 - Website: <https://automerge.python-templates.dev>
 - Install: <https://github.com/apps/python-templates-automerge/installations/new>
@@ -9,7 +9,7 @@ GitHub App that merges an eligible pull request after checks finish and blocking
 - Privacy: <https://automerge.python-templates.dev/privacy>
 - Marketplace assets: [`docs/img`](docs/img)
 
-The App asks GitHub to merge the exact checked head commit. GitHub remains responsible for enforcing required checks, reviews, branch protection,
+The App asks GitHub to merge the exact checked head commit. GitHub enforces required checks, reviews, branch protection,
 rulesets, and other merge requirements. Do not add the App to a branch-protection or ruleset bypass list.
 
 ## Behavior
@@ -27,13 +27,13 @@ latest commit status to leave `pending`. Completed `codecov/patch` and `codecov/
 commit statuses must be `success` before it requests a SHA-pinned merge.
 
 The App also waits up to 10 seconds for GitHub to calculate whether the current head can merge cleanly with the latest base branch. This calculation
-can be pending after another pull request merges. Pull requests with merge conflicts are left open.
+can be pending after another pull request merges. The App leaves pull requests with merge conflicts open.
 
 Before merging, the App waits until the active automerge label has been present for 10 seconds, then checks the pull request again. Removing the label
-during this grace period cancels the merge. If GitHub has not exposed the matching label event yet, the grace period starts when the App first observes
-the label instead of waiting repeatedly for event history.
+during this grace period cancels the merge. If GitHub has not returned the matching label event yet, the grace period starts when the App first sees
+the label.
 
-When new commits are pushed, the App removes either automerge label. Re-add a label after the new commit is ready to opt in again.
+When you push new commits, the App removes any automerge labels. Add a label again when the new commit is ready to merge.
 
 The App prefers squash, then merge commit, then rebase, based on the repository's enabled merge methods.
 

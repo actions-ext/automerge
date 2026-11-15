@@ -28,7 +28,7 @@ afterEach(() => {
 
 describe("worker", () => {
   test.each([
-    ["/", "Merge when GitHub says it is ready."],
+    ["/", "Merge labeled pull requests after checks pass."],
     ["/support", "Get help with Automerge"],
     ["/privacy", "Privacy policy"],
   ])("serves %s", async (path, content) => {
